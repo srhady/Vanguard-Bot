@@ -1,51 +1,66 @@
 import os, asyncio, re
+import google.generativeai as genai
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from googletrans import Translator
 
-# GitHub Secrets থেকে ডাটা নিচ্ছে
+# কনফিগারেশন
 api_id = int(os.environ.get("API_ID"))
 api_hash = os.environ.get("API_HASH")
 session_string = os.environ.get("SESSION_STRING")
+gemini_key = "AIzaSyCm0tOOntpKoXYBEKRlxgGcnjdgHlDz-Qc" # আপনার প্রোভাইড করা কি
+
+# Gemini AI সেটআপ
+genai.configure(api_key=gemini_key)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 CHANNELS = ['FotrosResistancee', 'IntelRepublic', 'Middle_East_Spectator', 'IRIran_Military', 'hnaftali']
 TARGET = '@VanguardalertBD'
 
-translator = Translator()
-
-# বিজ্ঞাপন এবং লিংক মোছার ফাংশন
-async def clean_and_translate(text):
+async def ai_smart_translate(text):
     if not text: return ""
     
-    # ১. অদরকারি ইউজারনেম বা শব্দ মোছা
-    bad_words = ['@Middle_East_Spectator', '@FotrosResistancee', '@IntelRepublic', '@IRIran_Military', '@hnaftali', 'Subscribe', 'Join us']
-    for word in bad_words:
-        text = text.replace(word, "")
+    # অপ্রয়োজনীয় লিঙ্ক ও ইউজারনেম পরিষ্কার করা
+    text = re.sub(r'https?://t\.me/\S+', '', text)
+    text = re.sub(r'@\w+', '', text).strip()
     
-    # ২. সব ধরনের টেলিগ্রাম লিংক (t.me/...) মুছে ফেলা
-    text = re.sub(r'https?://t\.me/\S+', '', text).strip()
+    # AI-কে ইনস্ট্রাকশন দেওয়া (যাতে সে অদ্ভুত অনুবাদ না করে)
+    prompt = f"""
+    Act as a professional news editor. Translate the following international news into high-quality, 
+    natural-sounding Bengali. 
+    Rules:
+    1. Don't use literal/robotic translation.
+    2. Use standard media Bengali (Suddho Bhasha).
+    3. Keep the tone serious and informative.
+    4. If there's a location or technical term, use its common Bengali equivalent.
+
+    News Text: {text}
+    """
     
-    # ৩. বাংলায় অনুবাদ করা
     try:
-        translation = translator.translate(text, dest='bn')
-        return f"{translation.text}\n\n📢 @VanguardalertBD"
-    except:
+        response = model.generate_content(prompt)
+        # আউটপুট থেকে বাড়তি টেক্সট বা বোল্ড সাইন থাকলে ঠিক করা
+        translated_text = response.text.replace('**', '').strip() 
+        return f"{translated_text}\n\n📢 @VanguardalertBD"
+    except Exception as e:
+        print(f"AI Error: {e}")
+        # AI ফেইল করলে যেন অন্তত অরিজিনাল টেক্সট যায় (নিরাপত্তার জন্য)
         return f"{text}\n\n📢 @VanguardalertBD"
 
 async def main():
     async with TelegramClient(StringSession(session_string), api_id, api_hash) as client:
-        print("🛡 Vanguard Clean & Translate Bot is Live!")
+        print("🚀 Vanguard AI-Powered Bot is Running!")
         
         @client.on(events.NewMessage(chats=CHANNELS))
-        async def h(e):
-            if e.grouped_id: return
-            new_text = await clean_and_translate(e.message.message)
-            await client.send_message(TARGET, new_text, file=e.message.media)
+        async def handle_new_message(e):
+            if e.grouped_id or not e.message.message: return
+            
+            translated = await ai_smart_translate(e.message.message)
+            await client.send_message(TARGET, translated, file=e.message.media)
 
         @client.on(events.Album(chats=CHANNELS))
-        async def a(e):
-            new_text = await clean_and_translate(e.text)
-            await client.send_message(TARGET, file=e.messages, message=new_text)
+        async def handle_album(e):
+            translated = await ai_smart_translate(e.text)
+            await client.send_message(TARGET, file=e.messages, message=translated)
             
         await client.run_until_disconnected()
 
