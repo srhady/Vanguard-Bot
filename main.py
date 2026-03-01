@@ -40,7 +40,7 @@ async def ai_smart_translate(text):
     try:
         # সেফটি ফিল্টার কনফিগারেশন (যাতে যুদ্ধের খবর ব্লক না হয়)
         response = client_ai.models.generate_content(
-            model="gemini-1.5-flash",
+            model="models/1.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
