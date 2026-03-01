@@ -1,6 +1,5 @@
 import os, asyncio, re
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
@@ -10,8 +9,9 @@ api_hash = os.environ.get("API_HASH")
 session_string = os.environ.get("SESSION_STRING")
 gemini_key = "AIzaSyCm0tOOntpKoXYBEKRlxgGcnjdgHlDz-Qc"
 
-# Gemini AI ক্লায়েন্ট সেটআপ
-client_ai = genai.Client(api_key=gemini_key)
+# Gemini AI সেটআপ
+genai.configure(api_key=gemini_key)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 CHANNELS = ['FotrosResistancee', 'IntelRepublic', 'Middle_East_Spectator', 'IRIran_Military', 'hnaftali']
 TARGET = '@VanguardalertBD'
@@ -23,49 +23,34 @@ async def ai_smart_translate(text):
     text = re.sub(r'https?://t\.me/\S+', '', text)
     text = re.sub(r'@\w+', '', text).strip()
     
-    # সব ভাষার জন্য নতুন প্রম্পট
-    prompt = f"""
-    অ্যাক্ট অ্যাজ এ মাল্টি-ল্যাঙ্গুয়েজ ট্রান্সলেটর। 
-    নিচের টেক্সটটি যে ভাষাতেই থাকুক না কেন (English, Arabic, Russian, Hebrew, etc.), 
-    সেটিকে সাবলীল এবং প্রফেশনাল নিউজ স্ট্যান্ডার্ড বাংলায় অনুবাদ করো।
-    
-    শর্তাবলী:
-    ১. কোনো ইংরেজি বা অন্য ভাষার শব্দ রাখা যাবে না।
-    ২. খবরের প্রেক্ষাপট অনুযায়ী অর্থপূর্ণ অনুবাদ করো।
-    ৩. অনুবাদ শেষে শেষে '📢 @VanguardalertBD' যোগ করো।
-    
-    টেক্সট: {text}
-    """
+    # মাল্টি-ল্যাঙ্গুয়েজ প্রম্পট
+    prompt = f"Translate the following news into professional Bengali from any language. Keep the meaning exact. News: {text}"
     
     try:
-        # সেফটি ফিল্টার কনফিগারেশন (যাতে যুদ্ধের খবর ব্লক না হয়)
-        response = client_ai.models.generate_content(
-            model="models/1.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                safety_settings=[
-                    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
-                    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE")
-                ]
-            )
+        # জেনারেশন কনফিগ
+        response = model.generate_content(
+            prompt,
+            safety_settings={
+                "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
+                "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+                "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
+            }
         )
         
         if response.text:
-            # আউটপুট থেকে বাড়তি বোল্ড চিহ্ন এবং স্পেস ক্লিন করা
             translated_text = response.text.replace('**', '').strip()
-            return translated_text
+            return f"{translated_text}\n\n📢 @VanguardalertBD"
         else:
-            return f"⚠️ অনুবাদ করা সম্ভব হয়নি।\n\n📢 @VanguardalertBD"
+            return f"{text}\n\n📢 @VanguardalertBD"
             
     except Exception as e:
         print(f"AI Error: {e}")
-        return f"❌ এরর: {str(e)}\n\n📢 @VanguardalertBD"
+        return f"{text}\n\n📢 @VanguardalertBD"
 
 async def main():
     async with TelegramClient(StringSession(session_string), api_id, api_hash) as client:
-        print("🌍 Vanguard Multi-Language AI is Live!")
+        print("🚀 Vanguard AI is back to basics & working!")
         
         @client.on(events.NewMessage(chats=CHANNELS))
         async def handle_new_message(e):
