@@ -8,7 +8,7 @@ api_id = int(os.environ.get("API_ID"))
 api_hash = os.environ.get("API_HASH")
 session_string = os.environ.get("SESSION_STRING")
 
-CHANNELS = ['FotrosResistancee', 'IntelRepublic', 'Middle_East_Spectator', 'sepah', 'IRIran_Military', 'hnaftali']
+CHANNELS = ['FotrosResistancee', 'IntelRepublic', 'Middle_East_Spectator', 'IRIran_Military', 'hnaftali']
 TARGET = '@VanguardalertBD'
 
 translator = Translator()
@@ -18,7 +18,7 @@ async def clean_and_translate(text):
     if not text: return ""
     
     # ১. অদরকারি ইউজারনেম বা শব্দ মোছা
-    bad_words = ['@Middle_East_Spectator', '@FotrosResistancee', '@IntelRepublic', '@IRIran_Military', '@hnaftali', '@sepah', 'Subscribe', 'Join us']
+    bad_words = ['@Middle_East_Spectator', '@FotrosResistancee', '@IntelRepublic', '@IRIran_Military', '@hnaftali', 'Subscribe', 'Join us']
     for word in bad_words:
         text = text.replace(word, "")
     
