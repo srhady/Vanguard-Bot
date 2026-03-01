@@ -1,67 +1,63 @@
-import os, asyncio, re
-import google.generativeai as genai
+import os, asyncio, re, requests
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
-# কনফিগারেশন
+# আপনার ডাটা (GitHub Secrets থেকে আসবে)
 api_id = int(os.environ.get("API_ID"))
 api_hash = os.environ.get("API_HASH")
 session_string = os.environ.get("SESSION_STRING")
-gemini_key = "AIzaSyCm0tOOntpKoXYBEKRlxgGcnjdgHlDz-Qc"
-
-# Gemini AI সেটআপ
-genai.configure(api_key=gemini_key)
-model = genai.GenerativeModel('gemini-1.5-flash')
 
 CHANNELS = ['FotrosResistancee', 'IntelRepublic', 'Middle_East_Spectator', 'IRIran_Military', 'hnaftali']
 TARGET = '@VanguardalertBD'
 
-async def ai_smart_translate(text):
+# Hugging Face API URL (যেকোনো ভাষা থেকে বাংলা করার জন্য)
+API_URL = "https://api-inference.huggingface.co/models/facebook/mbart-large-50-many-to-many-mmt"
+
+async def ai_translate(text):
     if not text: return ""
     
-    # লিঙ্ক ও ইউজারনেম পরিষ্কার করা
-    text = re.sub(r'https?://t\.me/\S+', '', text)
-    text = re.sub(r'@\w+', '', text).strip()
+    # অপ্রয়োজনীয় লিঙ্ক পরিষ্কার করা
+    text = re.sub(r'https?://t\.me/\S+', '', text).strip()
     
-    # মাল্টি-ল্যাঙ্গুয়েজ প্রম্পট
-    prompt = f"Translate the following news into professional Bengali from any language. Keep the meaning exact. News: {text}"
+    # এপিআই-তে পাঠানোর ডাটা (উৎস ভাষা নিজে থেকে চিনে নেবে)
+    payload = {
+        "inputs": text,
+        "parameters": {"src_lang": "en_XX", "tgt_lang": "bn_IN"} 
+    }
     
     try:
-        # জেনারেশন কনফিগ
-        response = model.generate_content(
-            prompt,
-            safety_settings={
-                "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
-                "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
-                "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
-                "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE",
-            }
-        )
+        # হগিং ফেস সার্ভারে রিকোয়েস্ট পাঠানো
+        response = requests.post(API_URL, json=payload, timeout=15)
+        result = response.json()
         
-        if response.text:
-            translated_text = response.text.replace('**', '').strip()
-            return f"{translated_text}\n\n📢 @VanguardalertBD"
-        else:
-            return f"{text}\n\n📢 @VanguardalertBD"
-            
+        # যদি মডেল লোড হতে সময় নেয় তবে ওয়েট করা
+        if isinstance(result, dict) and "estimated_time" in result:
+            await asyncio.sleep(result["estimated_time"])
+            response = requests.post(API_URL, json=payload, timeout=15)
+            result = response.json()
+
+        translated_text = result[0]['translation_text']
+        return f"{translated_text}\n\n📢 @VanguardalertBD"
+        
     except Exception as e:
-        print(f"AI Error: {e}")
+        print(f"Translation Error: {e}")
+        # যদি এআই ফেল করে তবে অরিজিনাল টেক্সট পাঠানো
         return f"{text}\n\n📢 @VanguardalertBD"
 
 async def main():
     async with TelegramClient(StringSession(session_string), api_id, api_hash) as client:
-        print("🚀 Vanguard AI is back to basics & working!")
+        print("✅ Vanguard AI (Hugging Face) is Running...")
         
         @client.on(events.NewMessage(chats=CHANNELS))
-        async def handle_new_message(e):
+        async def handle_msg(e):
             if e.grouped_id or not e.message.message: return
-            translated = await ai_smart_translate(e.message.message)
-            await client.send_message(TARGET, translated, file=e.message.media)
+            new_text = await ai_translate(e.message.message)
+            await client.send_message(TARGET, new_text, file=e.message.media)
 
         @client.on(events.Album(chats=CHANNELS))
         async def handle_album(e):
-            translated = await ai_smart_translate(e.text)
-            await client.send_message(TARGET, file=e.messages, message=translated)
+            new_text = await ai_translate(e.text)
+            await client.send_message(TARGET, file=e.messages, message=new_text)
             
         await client.run_until_disconnected()
 
