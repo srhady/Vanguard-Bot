@@ -4,10 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # এটি প্রতি ৫ ঘণ্টা পর পর বটটিকে রিস্টার্ট দিবে
+    - cron: '0 */5 * * *'
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    # এখানে ১টি সেশন যেন অন্যটির সাথে কনফ্লিক্ট না করে তাই timeout দেয়া ভালো
+    timeout-minutes: 350 
     
     steps:
       - name: Checkout Code
