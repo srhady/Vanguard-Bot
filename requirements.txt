@@ -1,2 +1,2 @@
 telethon
-google-generativeai
+google-genai
