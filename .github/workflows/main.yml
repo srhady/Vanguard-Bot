@@ -5,15 +5,22 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # এটি প্রতি ৫ ঘণ্টা পর পর বটটিকে রিস্টার্ট দিবে
-    - cron: '0 */5 * * *'
+    # ৬ ঘণ্টা ১৫ মিনিট ব্যবধানে দিনে ৪ বার রান হবে (UTC অনুযায়ী)
+    - cron: '0 0 * * *'      # রাত ১২:০০
+    - cron: '15 6 * * *'     # সকাল ৬:১৫
+    - cron: '30 12 * * *'    # দুপুর ১২:৩০
+    - cron: '45 18 * * *'    # সন্ধ্যা ৬:৪৫
+
+# এটি যোগ করলে আগের রানিং বটটি বন্ধ হয়ে নতুনটি চালু হবে, সেশন কনফ্লিক্ট হবে না
+concurrency:
+  group: vanguard-bot
+  cancel-in-progress: true
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    # এখানে ১টি সেশন যেন অন্যটির সাথে কনফ্লিক্ট না করে তাই timeout দেয়া ভালো
-    timeout-minutes: 350 
-    
+    timeout-minutes: 370 # প্রায় ৬ ঘণ্টা ১০ মিনিট
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
