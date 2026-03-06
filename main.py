@@ -12,7 +12,7 @@ API_HASH = os.environ.get("API_HASH")
 SESSION_STRING = os.environ.get("SESSION_STRING")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-# OpenRouter ক্লায়েন্ট সেটআপ
+# OpenRouter ক্লায়েন্ট
 client_ai = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
@@ -40,13 +40,13 @@ async def ai_translate(text):
         return f"{clean_text}\n\n📢 @VanguardalertBD"
 
     try:
-        # জাদুর কাঠি: এটি অটোমেটিক যেকোনো রানিং ফ্রি মডেল বেছে নেবে
+        # ভেরিফায়েড ফ্রি মডেল (Llama 3.3 70B)
         response = await client_ai.chat.completions.create(
-            model="openrouter/free", 
+            model="meta-llama/llama-3.3-70b-instruct:free", 
             messages=[
                 {
                     "role": "system", 
-                    "content": "You are a professional Bengali news editor. Translate the following English news into natural, sophisticated journalistic Bengali. Output ONLY the translated Bengali text. Do not add any extra comments, intros, or english words."
+                    "content": "You are a professional Bengali news editor. Translate the following English news into highly accurate, standard journalistic Bengali (Shuddho Bhasha). Maintain the true meaning of the original text. Output ONLY the translated Bengali text. Do NOT output any gibberish or random words."
                 },
                 {
                     "role": "user", 
@@ -59,7 +59,7 @@ async def ai_translate(text):
         translated_text = response.choices[0].message.content.strip()
         
         if translated_text:
-            print("✅ Free AI Translation successful!", flush=True)
+            print("✅ Verified Free AI Translation successful!", flush=True)
             return f"{translated_text}\n\n📢 @VanguardalertBD"
         else:
             print("⚠️ AI Warning: Empty response.", flush=True)
@@ -72,7 +72,7 @@ async def ai_translate(text):
 async def main():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
-    print("🚀 Vanguard Bot is Running! (AI: OpenRouter Auto-Free)", flush=True)
+    print("🚀 Vanguard Bot is Running! (AI: Llama 3.3 70B Free)", flush=True)
 
     @client.on(events.NewMessage(chats=CHANNELS))
     async def handle_new(e):
