@@ -12,7 +12,7 @@ API_HASH = os.environ.get("API_HASH")
 SESSION_STRING = os.environ.get("SESSION_STRING")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-# OpenRouter (Free AI) ক্লায়েন্ট সেটআপ
+# OpenRouter ক্লায়েন্ট সেটআপ
 client_ai = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
@@ -40,9 +40,9 @@ async def ai_translate(text):
         return f"{clean_text}\n\n📢 @VanguardalertBD"
 
     try:
-        # OpenRouter এর সম্পূর্ণ ফ্রি Llama 3 মডেল
+        # জাদুর কাঠি: এটি অটোমেটিক যেকোনো রানিং ফ্রি মডেল বেছে নেবে
         response = await client_ai.chat.completions.create(
-            model="meta-llama/llama-3-8b-instruct:free",
+            model="openrouter/free", 
             messages=[
                 {
                     "role": "system", 
@@ -72,7 +72,7 @@ async def ai_translate(text):
 async def main():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
-    print("🚀 Vanguard Bot is Running! (AI: OpenRouter Llama 3 Free)", flush=True)
+    print("🚀 Vanguard Bot is Running! (AI: OpenRouter Auto-Free)", flush=True)
 
     @client.on(events.NewMessage(chats=CHANNELS))
     async def handle_new(e):
