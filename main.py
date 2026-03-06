@@ -2,8 +2,7 @@ import os
 import asyncio
 import re
 import sqlite3
-from google import genai
-from google.genai import types
+from openai import AsyncOpenAI
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
@@ -11,11 +10,16 @@ from telethon.sessions import StringSession
 API_ID = int(os.environ.get("API_ID"))
 API_HASH = os.environ.get("API_HASH")
 SESSION_STRING = os.environ.get("SESSION_STRING")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-client_gemini = genai.Client(api_key=GEMINI_API_KEY)
+# OpenRouter (Free AI) ক্লায়েন্ট সেটআপ
+client_ai = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY,
+)
 
-db = sqlite3.connect("vanguard_gemini.db")
+# ডাটাবেস
+db = sqlite3.connect("vanguard_ai.db")
 cursor = db.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS mapping (source_id INTEGER, target_id INTEGER)")
 db.commit()
@@ -26,58 +30,49 @@ TARGET = '@VanguardalertBD'
 async def ai_translate(text):
     if not text: return ""
     
-    # --- টেক্সট ক্লিনআপ (যাতে সোর্স চ্যানেলের নাম/লিঙ্ক না যায়) ---
+    # --- টেক্সট ক্লিনআপ ---
     clean_text = text
-    # t.me/username স্টাইলের লিঙ্ক মোছা
     clean_text = re.sub(r'(https?://)?t\.me/\S+', '', clean_text, flags=re.IGNORECASE)
-    # সাধারণ http/https লিঙ্ক মোছা
     clean_text = re.sub(r'https?://\S+', '', clean_text)
-    # @username স্টাইলের মেনশন মোছা
     clean_text = re.sub(r'@\w+', '', clean_text).strip()
     
     if len(clean_text) < 5: 
         return f"{clean_text}\n\n📢 @VanguardalertBD"
 
     try:
-        prompt = (
-            "You are a professional Bengali news editor. "
-            "Translate the following news into natural, sophisticated journalistic Bengali. "
-            "Output ONLY the translated text. Do not add any extra comments.\n\n"
-            f"News: {clean_text}"
+        # OpenRouter এর সম্পূর্ণ ফ্রি Llama 3 মডেল
+        response = await client_ai.chat.completions.create(
+            model="meta-llama/llama-3-8b-instruct:free",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "You are a professional Bengali news editor. Translate the following English news into natural, sophisticated journalistic Bengali. Output ONLY the translated Bengali text. Do not add any extra comments, intros, or english words."
+                },
+                {
+                    "role": "user", 
+                    "content": clean_text
+                }
+            ],
+            temperature=0.3,
         )
         
-        # লেটেস্ট জিমিনি ২.০ মডেল ব্যবহার করা হচ্ছে (404 Error বাইপাস করতে)
-        response = client_gemini.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.3,
-                safety_settings=[
-                    types.SafetySetting(category='HARM_CATEGORY_HATE_SPEECH', threshold='BLOCK_NONE'),
-                    types.SafetySetting(category='HARM_CATEGORY_HARASSMENT', threshold='BLOCK_NONE'),
-                    types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE'),
-                    types.SafetySetting(category='HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold='BLOCK_NONE'),
-                ]
-            )
-        )
+        translated_text = response.choices[0].message.content.strip()
         
-        if response.text:
-            print("✅ Translation successful!", flush=True)
-            return f"{response.text.strip()}\n\n📢 @VanguardalertBD"
+        if translated_text:
+            print("✅ Free AI Translation successful!", flush=True)
+            return f"{translated_text}\n\n📢 @VanguardalertBD"
         else:
-            print("⚠️ AI Warning: Empty response from Gemini.", flush=True)
-            # অনুবাদ না হলেও ক্লিন করা টেক্সট যাবে (সোর্স নাম থাকবে না)
+            print("⚠️ AI Warning: Empty response.", flush=True)
             return f"{clean_text}\n\n📢 @VanguardalertBD"
             
     except Exception as e:
-        print(f"❌ Gemini Error: {e}", flush=True)
-        # এরর হলেও ক্লিন করা টেক্সট যাবে (সোর্স নাম থাকবে না)
+        print(f"❌ AI Error: {e}", flush=True)
         return f"{clean_text}\n\n📢 @VanguardalertBD"
 
 async def main():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
-    print("🚀 Vanguard Gemini is Running! (Model: Gemini 2.0 Flash)", flush=True)
+    print("🚀 Vanguard Bot is Running! (AI: OpenRouter Llama 3 Free)", flush=True)
 
     @client.on(events.NewMessage(chats=CHANNELS))
     async def handle_new(e):
