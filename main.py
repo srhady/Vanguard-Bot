@@ -25,23 +25,30 @@ TARGET = '@VanguardalertBD'
 
 async def ai_translate(text):
     if not text: return ""
-    original_text = text
-    text = re.sub(r'https?://\S+', '', text)
-    text = re.sub(r'@\w+', '', text).strip()
     
-    if len(text) < 5: 
-        return f"{original_text}\n\n📢 @VanguardalertBD"
+    # --- টেক্সট ক্লিনআপ (যাতে সোর্স চ্যানেলের নাম/লিঙ্ক না যায়) ---
+    clean_text = text
+    # t.me/username স্টাইলের লিঙ্ক মোছা
+    clean_text = re.sub(r'(https?://)?t\.me/\S+', '', clean_text, flags=re.IGNORECASE)
+    # সাধারণ http/https লিঙ্ক মোছা
+    clean_text = re.sub(r'https?://\S+', '', clean_text)
+    # @username স্টাইলের মেনশন মোছা
+    clean_text = re.sub(r'@\w+', '', clean_text).strip()
+    
+    if len(clean_text) < 5: 
+        return f"{clean_text}\n\n📢 @VanguardalertBD"
 
     try:
         prompt = (
             "You are a professional Bengali news editor. "
             "Translate the following news into natural, sophisticated journalistic Bengali. "
-            "Output ONLY the translated text.\n\n"
-            f"News: {text}"
+            "Output ONLY the translated text. Do not add any extra comments.\n\n"
+            f"News: {clean_text}"
         )
         
+        # লেটেস্ট জিমিনি ২.০ মডেল ব্যবহার করা হচ্ছে (404 Error বাইপাস করতে)
         response = client_gemini.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.3,
@@ -59,22 +66,26 @@ async def ai_translate(text):
             return f"{response.text.strip()}\n\n📢 @VanguardalertBD"
         else:
             print("⚠️ AI Warning: Empty response from Gemini.", flush=True)
-            return f"{original_text}\n\n📢 @VanguardalertBD"
+            # অনুবাদ না হলেও ক্লিন করা টেক্সট যাবে (সোর্স নাম থাকবে না)
+            return f"{clean_text}\n\n📢 @VanguardalertBD"
             
     except Exception as e:
-        print(f"❌ Gemini Error: {e}", flush=True) # flush=True দিলে লগ সাথে সাথে গিটহাবে দেখাবে
-        return f"{original_text}\n\n📢 @VanguardalertBD"
+        print(f"❌ Gemini Error: {e}", flush=True)
+        # এরর হলেও ক্লিন করা টেক্সট যাবে (সোর্স নাম থাকবে না)
+        return f"{clean_text}\n\n📢 @VanguardalertBD"
 
 async def main():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
-    print("🚀 Vanguard Gemini is Running! (Log tracking active)", flush=True)
+    print("🚀 Vanguard Gemini is Running! (Model: Gemini 2.0 Flash)", flush=True)
 
     @client.on(events.NewMessage(chats=CHANNELS))
     async def handle_new(e):
         if not e.message.message: return
         print(f"📥 New message received from {e.chat_id}", flush=True)
+        
         translated_msg = await ai_translate(e.message.message)
+        
         try:
             sent_msg = await client.send_message(TARGET, translated_msg, file=e.message.media)
             cursor.execute("INSERT INTO mapping VALUES (?, ?)", (e.id, sent_msg.id))
