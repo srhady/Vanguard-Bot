@@ -32,11 +32,11 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Start Bot
+           - name: Start Bot
         env:
           PYTHONUNBUFFERED: "1"
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
           SESSION_STRING: ${{ secrets.SESSION_STRING }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python -u main.py
