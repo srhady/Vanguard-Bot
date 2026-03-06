@@ -5,13 +5,13 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # ৬ ঘণ্টা ১৫ মিনিট ব্যবধানে দিনে ৪ বার রান হবে (UTC অনুযায়ী)
+    # ৬ ঘণ্টা ১৫ মিনিট ব্যবধানে দিনে ৪ বার রান হবে
     - cron: '0 0 * * *'      # রাত ১২:০০
     - cron: '15 6 * * *'     # সকাল ৬:১৫
     - cron: '30 12 * * *'    # দুপুর ১২:৩০
     - cron: '45 18 * * *'    # সন্ধ্যা ৬:৪৫
 
-# এটি যোগ করলে আগের রানিং বটটি বন্ধ হয়ে নতুনটি চালু হবে, সেশন কনফ্লিক্ট হবে না
+# আগের রানিং বটটি বন্ধ হয়ে নতুনটি চালু হবে
 concurrency:
   group: vanguard-bot
   cancel-in-progress: true
@@ -39,4 +39,5 @@ jobs:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
           SESSION_STRING: ${{ secrets.SESSION_STRING }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}  # <--- এটি নতুন যোগ করা হয়েছে
         run: python main.py
