@@ -7,16 +7,14 @@ from google.genai import types
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
-# --- Secrets/Env Variables ---
+# --- Secrets ---
 API_ID = int(os.environ.get("API_ID"))
 API_HASH = os.environ.get("API_HASH")
 SESSION_STRING = os.environ.get("SESSION_STRING")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Gemini ক্লায়েন্ট সেটআপ
 client_gemini = genai.Client(api_key=GEMINI_API_KEY)
 
-# ডাটাবেস
 db = sqlite3.connect("vanguard_gemini.db")
 cursor = db.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS mapping (source_id INTEGER, target_id INTEGER)")
@@ -27,8 +25,6 @@ TARGET = '@VanguardalertBD'
 
 async def ai_translate(text):
     if not text: return ""
-    
-    # ক্লিনআপ (লিঙ্ক ও ইউজারনেম সরানো)
     original_text = text
     text = re.sub(r'https?://\S+', '', text)
     text = re.sub(r'@\w+', '', text).strip()
@@ -37,7 +33,6 @@ async def ai_translate(text):
         return f"{original_text}\n\n📢 @VanguardalertBD"
 
     try:
-        # প্রফেশনাল নিউজ এডিটর প্রম্পট
         prompt = (
             "You are a professional Bengali news editor. "
             "Translate the following news into natural, sophisticated journalistic Bengali. "
@@ -60,35 +55,33 @@ async def ai_translate(text):
         )
         
         if response.text:
+            print("✅ Translation successful!", flush=True)
             return f"{response.text.strip()}\n\n📢 @VanguardalertBD"
         else:
-            print("⚠️ AI Warning: Empty response from Gemini. Posting original.")
+            print("⚠️ AI Warning: Empty response from Gemini.", flush=True)
             return f"{original_text}\n\n📢 @VanguardalertBD"
             
     except Exception as e:
-        # এখানে আপনি টার্মিনালে ডিটেইল এরর দেখতে পাবেন
-        print(f"❌ Gemini Translation Failed! Error: {e}")
-        # টেলিগ্রামে অরিজিনাল টেক্সটই যাবে
+        print(f"❌ Gemini Error: {e}", flush=True) # flush=True দিলে লগ সাথে সাথে গিটহাবে দেখাবে
         return f"{original_text}\n\n📢 @VanguardalertBD"
 
 async def main():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
-    print("🚀 Vanguard Gemini is Running! (Log tracking active)")
+    print("🚀 Vanguard Gemini is Running! (Log tracking active)", flush=True)
 
     @client.on(events.NewMessage(chats=CHANNELS))
     async def handle_new(e):
         if not e.message.message: return
-        
-        # অনুবাদ করার চেষ্টা করবে
+        print(f"📥 New message received from {e.chat_id}", flush=True)
         translated_msg = await ai_translate(e.message.message)
-        
         try:
             sent_msg = await client.send_message(TARGET, translated_msg, file=e.message.media)
             cursor.execute("INSERT INTO mapping VALUES (?, ?)", (e.id, sent_msg.id))
             db.commit()
+            print("📤 Successfully posted to Target Channel.", flush=True)
         except Exception as ex:
-            print(f"Telegram Post Error: {ex}")
+            print(f"Post Error: {ex}", flush=True)
 
     @client.on(events.MessageEdited(chats=CHANNELS))
     async def handle_edit(e):
@@ -98,8 +91,8 @@ async def main():
             new_text = await ai_translate(e.message.message)
             try:
                 await client.edit_message(TARGET, result[0], text=new_text)
-            except Exception as ex:
-                print(f"Edit Sync Error: {ex}")
+                print("📝 Edit synced successfully.", flush=True)
+            except: pass
             
     await client.run_until_disconnected()
 
