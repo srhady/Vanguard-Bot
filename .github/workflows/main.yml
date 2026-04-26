@@ -3,12 +3,8 @@ name: Vanguard Bot 24/7
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'
-    - cron: '15 6 * * *'
-    - cron: '30 12 * * *'
-    - cron: '45 18 * * *'
+  → Runs at 18:45
+
 
 concurrency:
   group: vanguard-bot
